@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKotlinMultiplatformLibrary)
     alias(libs.plugins.androidLint)
+    alias(libs.plugins.mavenPublish)
+    id("org.jetbrains.kotlin.plugin.parcelize")
 }
 
 kotlin {
@@ -57,4 +59,46 @@ kotlin {
         }
     }
 
+}
+
+mavenPublishing {
+    publishToMavenCentral()
+
+//    signAllPublications()
+
+    coordinates(
+        groupId = "com.biggates",
+        artifactId = "device-manager",
+        version = "0.0.1",
+    )
+
+    pom {
+        name = "Device Manager (Kotlin Multiplatform)"
+        description = "Device Info Manager"
+        inceptionYear = "2025"
+        url = "https://github.com/big-gates/device-manager"
+
+        licenses {
+            license {
+                name = "The Apache License, Version 2.0"
+                url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                distribution = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+        }
+
+        developers {
+            developer {
+                id = "big-gates"
+                name = "Big Gates"
+                email = "biggatescorp@gamil.com"
+                url = "https://github.com/big-gates"
+            }
+        }
+
+        scm {
+            url = "https://github.com/big-gates/device-manager"
+            connection = "scm:git:https://github.com/big-gates/device-manager.git"
+            developerConnection = "scm:git:ssh://git@github.com/big-gates/device-manager.git"
+        }
+    }
 }

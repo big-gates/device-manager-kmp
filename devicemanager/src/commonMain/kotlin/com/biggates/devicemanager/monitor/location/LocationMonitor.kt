@@ -1,6 +1,7 @@
-package com.biggates.devicemanager.monitor
+package com.biggates.devicemanager.monitor.location
 
 import com.biggates.devicemanager.Location
+import com.biggates.devicemanager.monitor.Monitor
 
 interface LocationMonitor : Monitor<Location?> {
     /**

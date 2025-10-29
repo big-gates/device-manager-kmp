@@ -6,8 +6,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
-    <!-- Android 9+ 포그라운드 서비스 권한 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- Android 14+에서 알림 권한 런타임 요청 필요 -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Android 9(API 28)+ 포그라운드 서비스 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
+    <!-- Android 14(API 34)+ 위치 타입 명시 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
 </manifest>
