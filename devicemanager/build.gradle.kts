@@ -36,6 +36,7 @@ kotlin {
 
     sourceSets {
         androidMain.dependencies {
+            implementation(libs.androidx.activity.ktx)
             implementation(libs.androidx.core.ktx)
             implementation(libs.play.services.location)
         }
