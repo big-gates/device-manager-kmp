@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Looper
 import com.biggates.devicemanager.device.Location
 import com.biggates.devicemanager.device.PlatformContext
-import com.biggates.devicemanager.device.permission.location.checkLocationWhenInUseGranted
+import com.biggates.devicemanager.permission.location.checkLocationWhenInUseGranted
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest

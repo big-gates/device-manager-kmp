@@ -8,10 +8,10 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(17)
 
+    jvmToolchain(17)
     androidLibrary {
-        namespace = "com.biggates.devicemanager.device"
+        namespace = "com.biggates.devicemanager.permission"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
@@ -39,12 +39,9 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.activity.ktx)
             implementation(libs.androidx.core.ktx)
-            implementation(libs.play.services.location)
         }
         commonMain.dependencies {
-            api(projects.permission)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
         }
 
         commonTest.dependencies {
@@ -70,13 +67,13 @@ mavenPublishing {
 
     coordinates(
         groupId = "com.biggates",
-        artifactId = "devicemanager-device",
+        artifactId = "devicemanager-permission",
         version = "0.0.1",
     )
 
     pom {
-        name = "Device Info Manager (Kotlin Multiplatform)"
-        description = "Device Info Manager"
+        name = "Device Permission Manager (Kotlin Multiplatform)"
+        description = "Device Permission Manager"
         inceptionYear = "2025"
         url = "https://github.com/big-gates/devicemanager-kmp"
 
