@@ -19,50 +19,69 @@ import kotlin.coroutines.resume
 class AndroidPermissionController(
     override val context: PlatformContext,
     private val activityRef: WeakReference<ComponentActivity>,
-    private val permissionLauncher: ActivityResultLauncher<Array<String>>,
-    private val settingsLauncher: ActivityResultLauncher<Intent>
 ) : PermissionController {
-
-    // 진행 중인 요청을 이어줄 콜백들 (동시 요청 보호)
-    private var pendingPermissions: ((Map<AppPermission, Boolean>) -> Unit)? = null
-    private var pendingPermission: ((Boolean) -> Unit)? = null
-
-    private var pendingSettings: (() -> Unit)? = null
 
     override suspend fun launchPermissions(
         permissions: List<AppPermission>
     ): Map<AppPermission, Boolean> {
+        val activity = activityRef.get() ?: return permissions.toCurrentState(context)
         val androidStrings = permissions.toAndroid().toTypedArray()
 
-        return if (androidStrings.isEmpty()) {
-            permissions.toCurrentState(context)
-        } else {
-            suspendCancellableCoroutine { cont ->
-                check(pendingPermissions == null) { "Permission request already in progress" }
-                pendingPermissions = { result ->
-                    if (!cont.isCompleted) cont.resume(result)
-                    pendingPermissions = null
+        if (androidStrings.isEmpty()) {
+            return permissions.toCurrentState(context)
+        }
+
+        return suspendCancellableCoroutine { cont ->
+            val registry = activity.activityResultRegistry
+            val key = "perm-multi-${hashCode()}-${System.currentTimeMillis()}"
+
+            var launcher: ActivityResultLauncher<Array<String>>? = null
+            launcher = registry.register(
+                key,
+                ActivityResultContracts.RequestMultiplePermissions()
+            ) { result ->
+                if (!cont.isCompleted) {
+                    cont.resume(result.toAppPermission())
                 }
-                permissionLauncher.launch(androidStrings)
-                cont.invokeOnCancellation { pendingPermissions = null }
+                launcher?.unregister()
+            }
+
+            launcher.launch(androidStrings)
+
+            cont.invokeOnCancellation {
+                launcher.unregister()
             }
         }
     }
 
     override suspend fun launchPermission(permission: AppPermission): Boolean {
+        val activity = activityRef.get() ?: return permission.toCurrentState(context)
         val androidStrings = permission.toAndroid().toTypedArray()
 
-        return if (androidStrings.isEmpty()) {
-            permission.toCurrentState(context)
-        } else {
-            suspendCancellableCoroutine { cont ->
-                check(pendingPermission == null) { "Permission request already in progress" }
-                pendingPermission = { result ->
-                    if (!cont.isCompleted) cont.resume(result)
-                    pendingPermission = null
+        if (androidStrings.isEmpty()) {
+            return permission.toCurrentState(context)
+        }
+
+        return suspendCancellableCoroutine { cont ->
+            val registry = activity.activityResultRegistry
+            val key = "perm-single-${hashCode()}-${System.currentTimeMillis()}"
+
+            var launcher: ActivityResultLauncher<Array<String>>? = null
+            launcher = registry.register(
+                key,
+                ActivityResultContracts.RequestMultiplePermissions()
+            ) { result ->
+                val granted = result.toAppPermission()[permission] ?: false
+                if (!cont.isCompleted) {
+                    cont.resume(granted)
                 }
-                permissionLauncher.launch(androidStrings)
-                cont.invokeOnCancellation { pendingPermission = null }
+                launcher?.unregister()
+            }
+
+            launcher.launch(androidStrings)
+
+            cont.invokeOnCancellation {
+                launcher.unregister()
             }
         }
     }
@@ -71,82 +90,64 @@ class AndroidPermissionController(
         val activity = activityRef.get() ?: return false
         return when (permission) {
             AppPermission.LocationWhenInUse -> {
-                // FINE/COARSE 중 하나라도 라쇼날이면 true
                 activity.shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) ||
                         activity.shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)
             }
-            AppPermission.LocationAlways -> {
-                // Android 11+(API 30)부터는 다이얼로그로 바로 요청 못 하고
-                // 보통 설정 유도 흐름이므로 라쇼날 표시 타이밍이 애매 → false로 두고 교육 UI에서 처리
-                false
-            }
+            AppPermission.LocationAlways -> false
             AppPermission.Notifications -> {
                 if (Build.VERSION.SDK_INT >= 33) {
                     activity.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
-                    // 런타임 퍼미션이 없으니 라쇼날 개념도 없음
                     false
                 }
             }
         }
     }
 
-    override suspend fun openAppSettings(): Unit = suspendCancellableCoroutine { cont ->
-        check(pendingSettings == null) { "Settings flow already in progress" }
-        pendingSettings = {
-            if (!cont.isCompleted) cont.resume(Unit)
-            pendingSettings = null
+    override suspend fun openAppSettings() {
+        val activity = activityRef.get() ?: return
+
+        return suspendCancellableCoroutine { cont ->
+            val registry = activity.activityResultRegistry
+            val key = "settings-${hashCode()}-${System.currentTimeMillis()}"
+
+            var launcher: ActivityResultLauncher<Intent>? = null
+            launcher = registry.register(
+                key,
+                ActivityResultContracts.StartActivityForResult()
+            ) {
+                if (!cont.isCompleted) {
+                    cont.resume(Unit)
+                }
+                launcher?.unregister()
+            }
+
+            val intent = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", activity.packageName, null)
+            )
+            launcher.launch(intent)
+
+            cont.invokeOnCancellation {
+                launcher.unregister()
+            }
         }
-        val activity = activityRef.get()
-        val intent = Intent(
-            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            Uri.fromParts("package", activity?.packageName ?: context.packageName, null)
-        )
-        settingsLauncher.launch(intent)
-        cont.invokeOnCancellation { pendingSettings = null }
     }
 
     override suspend fun checkPermissionsGranted(
         permissions: List<AppPermission>
     ): Map<AppPermission, Boolean> = permissions.toCurrentState(context)
 
-    override suspend fun checkPermissionGranted(permission: AppPermission): Boolean {
-        return permission.toCurrentState(context)
-    }
-
-    // --- 런처 콜백에서 호출될 진입점 ---
-    fun onPermissionsResult(result: Map<String, Boolean>) {
-        val aggregated = result.toAppPermission()
-        pendingPermissions?.invoke(aggregated)
-        pendingPermissions = null
-    }
-
-    fun onReturnedFromSettings() {
-        pendingSettings?.invoke()
-        pendingSettings = null
-    }
+    override suspend fun checkPermissionGranted(permission: AppPermission): Boolean =
+        permission.toCurrentState(context)
 }
 
 fun createDefaultAndroidPermissionController(
     activity: ComponentActivity
 ): PermissionController {
-    var controller: AndroidPermissionController? = null
     val context = activity.applicationContext as Application
-
-    // 런처 먼저 만들고, 콜백에서 controller로 결과 전달
-    val permLauncher = activity.registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { result -> controller?.onPermissionsResult(result) }
-
-    val settingsLauncher = activity.registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { _ -> controller?.onReturnedFromSettings() }
-
-    controller = AndroidPermissionController(
+    return AndroidPermissionController(
         context = context,
-        activityRef = WeakReference(activity),
-        permissionLauncher = permLauncher,
-        settingsLauncher = settingsLauncher
+        activityRef = WeakReference(activity)
     )
-    return controller
 }
