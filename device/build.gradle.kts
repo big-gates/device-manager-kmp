@@ -69,7 +69,7 @@ mavenPublishing {
     }
 
     coordinates(
-        groupId = "com.biggates",
+        groupId = "io.github.big-gates",
         artifactId = "devicemanager-device",
         version = "0.0.1",
     )
